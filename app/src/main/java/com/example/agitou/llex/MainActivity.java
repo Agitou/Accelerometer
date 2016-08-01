@@ -5,122 +5,124 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
-import android.preference.SwitchPreference;
-import android.support.v7.app.AppCompatActivity;
+import android.media.SoundPool;
 import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-import android.widget.CheckBox;
-import android.widget.CompoundButton;
-import android.widget.ImageView;
-import android.widget.Switch;
 import android.widget.TextView;
 
-public class MainActivity extends AppCompatActivity implements SensorEventListener {
+public class MainActivity extends AppCompatActivity implements SensorEventListener{
 
-    /*private Switch switch1;
-    private TextView txt1, txt2;
-    private CheckBox box;
-    private ImageView img;
-    */
-
-    //sensor declarations
+    public TextView x, y, z, xdata, ydata, zdata, sped;
+    private SensorManager sensorManager;
+    private Sensor sensor;
     private long lastUpdate = 0;
     private float last_x, last_y, last_z;
-    private static final int SHAKE_THRESHOLD = 600;
-    private SensorManager senSensorManager;
-    private Sensor senAccelerometer;
-    private MediaPlayer mp;
-    private boolean isPlaying = false;
-    private Button btn;
+    private MediaPlayer mp, mp2;
+    private SoundPool sp;
+    private Button btn1;
+    boolean isPlaying = false, flag = false;
+    private int SPEED_THRESHOLD = 300, constSpeed = 100, soundId;
+    private double bpm, bpmmin = 0, bpmmax = 10;
+
+
+    private float s1 = 0, s2 = 0, s3 = 0, s4 = 0, s5 = 0, s6 = 0;
+    private float c1 = 0.05237f, c2 = 0.06725f, c3 = 0.06725f, c4 = 0.05237f;
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        //useless stuffs
-        /*txt1 = (TextView) findViewById(R.id.textView4);
-        txt2 = (TextView) findViewById(R.id.textView5);
-        switch1 = (Switch) findViewById(R.id.switch1);
-        box = (CheckBox) findViewById(R.id.checkBox);
-        img = (ImageView) findViewById(R.id.imageView2);*/
+        sp = new SoundPool(5, AudioManager.STREAM_MUSIC, 0);
+        soundId = sp.load(this, R.raw.clap, 1);
 
 
-        //sensors and stuff
-        senSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-        senAccelerometer = senSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        senSensorManager.registerListener(this, senAccelerometer , SensorManager.SENSOR_DELAY_NORMAL);
+        x = (TextView) findViewById(R.id.x);
+        y = (TextView) findViewById(R.id.y);
+        z = (TextView) findViewById(R.id.z);
 
-        /*switch1.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener(){
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked){
-                if(!isChecked){
-                    txt1.setVisibility(View.INVISIBLE);
-                    img.setVisibility(View.INVISIBLE);
+        xdata = (TextView) findViewById(R.id.xdata);
+        ydata = (TextView) findViewById(R.id.ydata);
+        zdata = (TextView) findViewById(R.id.zdata);
+        sped = (TextView) findViewById(R.id.sped);
+
+        btn1 = (Button) findViewById(R.id.btn1);
+        btn1.setOnClickListener(new View.OnClickListener() {
+
+            public void onClick(View v) {
+                // TODO Auto-generated method stub
+                mp.seekTo(50000);
+                /*if(isPlaying){
+                    mp2.pause();
+                    mp2.setLooping(false);
                 }
-                else{
-                    txt1.setVisibility(View.VISIBLE);
-                    img.setVisibility(View.VISIBLE);
+                else {
+                    mp2.start();
+                    mp2.setLooping(true);
                 }
+                isPlaying = !isPlaying;
+                */
             }
         });
 
-        box.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener(){
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked){
-                if(!isChecked){
-                    txt2.setVisibility(View.INVISIBLE);
-                }
-                else{
-                    txt2.setVisibility(View.VISIBLE);
-                }
-            }
-        });
-        */
 
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        sensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
-    //sensor methods
-    @Override
-    public void onSensorChanged(SensorEvent sensorEvent) {
-        Sensor mySensor = sensorEvent.sensor;
-        mp = MediaPlayer.create(this, R.raw.clap);
-        /*btn = (Button)findViewById(R.id.button3);
+    public void onSensorChanged(SensorEvent sensor){
+        Sensor mySensor = sensor.sensor;
 
-        btn.setOnClickListener(new View.OnClickListener(){
-            @Override
-            public void onClick(View v) {
-                if(isPlaying){
-                    mp.pause();
-                }
-            }
-        });
-        */
 
-        if (mySensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-            float x = sensorEvent.values[0];
-            float y = sensorEvent.values[1];
-            float z = sensorEvent.values[2];
-
-            float avg = (x + y + x) / 3;
-
+        if(mySensor.getType() == Sensor.TYPE_ACCELEROMETER){
+            float xn = sensor.values[0];
+            float yn = sensor.values[1];
+            float zn = sensor.values[2];
             long curTime = System.currentTimeMillis();
 
             //if ((curTime - lastUpdate) > 10)
-            if (avg > 1) {
+            if ((curTime - lastUpdate) > 100) {
                 long diffTime = (curTime - lastUpdate);
                 lastUpdate = curTime;
+                mp = MediaPlayer.create(this, R.raw.clap);
 
-                float speed = Math.abs(x + y + z - last_x - last_y - last_z)/ diffTime * 10000;
+                xdata.setText(String.format("%d", Math.round(xn)));
+                ydata.setText(String.format("%d", Math.round(yn)));
+                zdata.setText(String.format("%d", Math.round(zn)));
 
-                if (speed > SHAKE_THRESHOLD) {
-                    mp.start();
+                float s1 = Math.abs(xn + yn + zn - last_x - last_y - last_z)/ diffTime * 10000;
+
+                float speed = s1 * c1 + s2 * c2 + s3 * c3 + s4 * c4;
+
+                sped.setText(String.format("%d", Math.round(speed)));
+                Log.i("Speed:", String.format("%.2f", speed));
+                //Log.i("Time:", )
+
+                if (s1 > SPEED_THRESHOLD) {
+                    sp.play(soundId, 1, 1, 1, 0, 1);
                 }
 
-                last_x = x;
-                last_y = y;
-                last_z = z;
+
+                last_x = xn;
+                last_y = yn;
+                last_z = zn;
+                s4 = s3;
+                s3 = s2;
+                s2 = s1;
             }
+            /*
+            xdata.setText(String.format("%.2f", xn));
+            ydata.setText(String.format("%.2f", yn));
+            zdata.setText(String.format("%.2f", zn));
+            */
+
         }
     }
 
@@ -131,12 +133,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     protected void onPause() {
         super.onPause();
-        senSensorManager.unregisterListener(this);
+        sensorManager.unregisterListener(this);
     }
 
     protected void onResume() {
         super.onResume();
-        senSensorManager.registerListener(this, senAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+        sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_FASTEST);
     }
-
 }
